@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>百ます計算</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .grid-container {
+            display: inline-grid;
+            gap: 1px;
+            background-color: #000;
+            border: 1px solid #000;
+        }
+        .grid-cell {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            width: 3rem;
+            height: 3rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.25rem;
+            font-weight: bold;
+            position: relative;
+        }
+        .header-cell {
+            background-color: #f3f4f6;
+            font-weight: bold;
+        }
+        .answer {
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: 0.75rem;
+            color: #d1d5db; /* gray-300 */
+            font-weight: normal;
+        }
+        .print-title {
+            display: none;
+        }
+        .print-name {
+            display: none;
+        }
+        .print-time {
+            display: none;
+        }
+        @media print {
+            body {
+                background-color: #fff;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 20px;
+            }
+            .no-print {
+                display: none;
+            }
+            .print-title {
+                display: block;
+                font-size: 2rem;
+                font-weight: bold;
+                text-align: center;
+                margin-bottom: 20px;
+                color: #000;
+            }
+            .print-name {
+                display: block;
+                font-size: 1.2rem;
+                margin-bottom: 20px;
+                color: #000;
+            }
+            .print-time {
+                display: block;
+                font-size: 1.2rem;
+                margin-top: 20px;
+                color: #000;
+            }
+            .grid-cell {
+                width: 2.5rem;
+                height: 2.5rem;
+                font-size: 1rem;
+            }
+            .grid-container {
+                border: 2px solid #000;
+            }
+            .answer {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center p-4">
+    <div class="no-print bg-white p-6 rounded-lg shadow-lg max-w-lg w-full mb-8">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">百ます計算</h1>
+        <p class="text-center text-gray-600 mb-6">マス数を入力して、計算シートを生成します。</p>
+        <div class="flex items-center justify-center mb-4">
+            <label for="sizeInput" class="text-gray-700 mr-2 font-medium">マス数:</label>
+            <input type="number" id="sizeInput" value="10" min="1" max="20" class="w-24 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center">
+        </div>
+        <div class="flex justify-center space-x-4 mb-4">
+            <button id="additionBtn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">足し算</button>
+            <button id="subtractionBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">引き算</button>
+        </div>
+        <div class="flex justify-center space-x-4">
+            <button id="generateBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">生成</button>
+            <button id="printBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">印刷</button>
+        </div>
+    </div>
+    
+    <div id="print-title" class="print-title"></div>
+    <div id="print-name" class="print-name">なまえ　　　　　　　　　　　　　　　　　　　　</div>
+    <div id="grid-container" class="grid-container rounded-lg shadow-xl"></div>
+    <div id="print-time" class="print-time">　　　　分　　　　秒</div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sizeInput = document.getElementById('sizeInput');
+            const additionBtn = document.getElementById('additionBtn');
+            const subtractionBtn = document.getElementById('subtractionBtn');
+            const generateBtn = document.getElementById('generateBtn');
+            const printBtn = document.getElementById('printBtn');
+            const gridContainer = document.getElementById('grid-container');
+            const printTitle = document.getElementById('print-title');
+
+            let currentOperation = 'addition'; // Default operation is addition
+
+            // Update print title based on current operation
+            function updatePrintTitle() {
+                printTitle.textContent = currentOperation === 'addition' ? 'たしざん' : 'ひきざん';
+            }
+
+            /**
+             * Generates the grid based on the specified size and current operation.
+             * @param {number} size - The size of the grid (e.g., 10 for 10x10).
+             */
+            function generateGrid(size = 10) {
+                const gridSize = parseInt(size, 10) || 10;
+                gridContainer.innerHTML = '';
+                gridContainer.style.gridTemplateColumns = `repeat(${gridSize + 1}, minmax(0, 1fr))`;
+
+                let rowHeaders = [];
+                let colHeaders = [];
+
+                if (currentOperation === 'addition') {
+                    // 足し算の場合：全ての組み合わせで結果が一桁（0-9）になるように制限
+                    rowHeaders = Array.from({ length: gridSize }, () => Math.floor(Math.random() * 5)); // 0-4
+                    colHeaders = Array.from({ length: gridSize }, () => Math.floor(Math.random() * 5)); // 0-4
+                } else {
+                    // 引き算の場合：結果が0以上の一桁（0-9）になるように制限
+                    rowHeaders = Array.from({ length: gridSize }, () => Math.floor(Math.random() * 5)); // 0-4（引く数）
+                    colHeaders = Array.from({ length: gridSize }, () => Math.floor(Math.random() * 6) + 4); // 4-9（引かれる数）
+                }
+
+                // Generate the header row (horizontal axis)
+                for (let i = 0; i <= gridSize; i++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell header-cell';
+                    if (i > 0) {
+                        cell.textContent = colHeaders[i - 1];
+                    }
+                    gridContainer.appendChild(cell);
+                }
+
+                // Generate the main grid with row headers
+                for (let i = 0; i < gridSize; i++) {
+                    const rowHeader = document.createElement('div');
+                    rowHeader.className = 'grid-cell header-cell';
+                    rowHeader.textContent = rowHeaders[i];
+                    gridContainer.appendChild(rowHeader);
+
+                    // Generate inner cells for calculation results
+                    for (let j = 0; j < gridSize; j++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        cell.textContent = '';
+                        
+                        const answerSpan = document.createElement('span');
+                        answerSpan.className = 'answer';
+                        
+                        let result;
+                        let rowValue = rowHeaders[i];  // i行目の縦軸の値
+                        let colValue = colHeaders[j];  // j列目の横軸の値
+
+                        if (currentOperation === 'addition') {
+                            result = rowValue + colValue;
+                        } else {
+                            // Calculate result of `colValue - rowValue`
+                            result = colValue - rowValue;
+                        }
+
+                        answerSpan.textContent = result;
+                        cell.appendChild(answerSpan);
+                        
+                        gridContainer.appendChild(cell);
+                    }
+                }
+            }
+
+            // Initial grid generation on page load
+            generateGrid(sizeInput.value);
+            updatePrintTitle();
+
+            // Event listeners for buttons and input field
+            additionBtn.addEventListener('click', () => {
+                currentOperation = 'addition';
+                generateGrid(sizeInput.value);
+                updatePrintTitle();
+            });
+
+            subtractionBtn.addEventListener('click', () => {
+                currentOperation = 'subtraction';
+                generateGrid(sizeInput.value);
+                updatePrintTitle();
+            });
+
+            generateBtn.addEventListener('click', () => {
+                generateGrid(sizeInput.value);
+            });
+
+            printBtn.addEventListener('click', () => {
+                window.print();
+            });
+
+            sizeInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    generateBtn.click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
